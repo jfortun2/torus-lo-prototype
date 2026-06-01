@@ -1,122 +1,159 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useCallback, useState } from 'react'
+import type { Alignment, AlignmentStrength, Course } from './types/course'
+import { mockCourse } from './data/mockCourse'
+import { AppShell, type MainView, type SidebarTab } from './components/AppShell'
+import { CoverageDashboard } from './components/CoverageDashboard'
+import { LODetail } from './components/LODetail'
+import { ContentDetail } from './components/ContentDetail'
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function createInitialCourse(): Course {
+  return {
+    ...mockCourse,
+    alignments: mockCourse.alignments.map((a) => ({ ...a })),
+  }
 }
 
-export default App
+export default function App() {
+  const [course, setCourse] = useState<Course>(createInitialCourse)
+  const [mainView, setMainView] = useState<MainView>('dashboard')
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('outline')
+  const [selectedLoId, setSelectedLoId] = useState<string | null>(null)
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null)
+
+  const updateAlignments = useCallback(
+    (updater: (alignments: Alignment[]) => Alignment[]) => {
+      setCourse((prev) => ({
+        ...prev,
+        alignments: updater(prev.alignments),
+      }))
+    },
+    [],
+  )
+
+  const handleSelectObjective = useCallback((loId: string) => {
+    setSelectedLoId(loId)
+    setMainView('lo-detail')
+    setSidebarTab('objectives')
+  }, [])
+
+  const handleSelectContent = useCallback((contentId: string) => {
+    setSelectedContentId(contentId)
+    setMainView('content-detail')
+    setSidebarTab('outline')
+  }, [])
+
+  const handleAddLoContentLinks = useCallback(
+    (contentIds: string[]) => {
+      if (!selectedLoId) return
+      updateAlignments((alignments) => [
+        ...alignments,
+        ...contentIds.map((contentId) => ({
+          loId: selectedLoId,
+          contentId,
+          strength: 'primary' as AlignmentStrength,
+        })),
+      ])
+    },
+    [selectedLoId, updateAlignments],
+  )
+
+  const handleRemoveLoContentLink = useCallback(
+    (contentId: string) => {
+      if (!selectedLoId) return
+      updateAlignments((alignments) =>
+        alignments.filter((a) => !(a.loId === selectedLoId && a.contentId === contentId)),
+      )
+    },
+    [selectedLoId, updateAlignments],
+  )
+
+  const handleUpdateLinkStrength = useCallback(
+    (contentId: string, strength: AlignmentStrength) => {
+      if (!selectedLoId) return
+      updateAlignments((alignments) =>
+        alignments.map((a) =>
+          a.loId === selectedLoId && a.contentId === contentId ? { ...a, strength } : a,
+        ),
+      )
+    },
+    [selectedLoId, updateAlignments],
+  )
+
+  const handleAddContentLoLinks = useCallback(
+    (loIds: string[]) => {
+      if (!selectedContentId) return
+      updateAlignments((alignments) => [
+        ...alignments,
+        ...loIds.map((loId) => ({
+          loId,
+          contentId: selectedContentId,
+          strength: 'primary' as AlignmentStrength,
+        })),
+      ])
+    },
+    [selectedContentId, updateAlignments],
+  )
+
+  const handleRemoveContentLoLink = useCallback(
+    (loId: string) => {
+      if (!selectedContentId) return
+      updateAlignments((alignments) =>
+        alignments.filter((a) => !(a.loId === loId && a.contentId === selectedContentId)),
+      )
+    },
+    [selectedContentId, updateAlignments],
+  )
+
+  const handleViewChange = useCallback(
+    (view: MainView) => {
+      setMainView(view)
+      if (view === 'dashboard') {
+        setSelectedLoId(null)
+        setSelectedContentId(null)
+      }
+    },
+    [],
+  )
+
+  return (
+    <AppShell
+      course={course}
+      mainView={mainView}
+      sidebarTab={sidebarTab}
+      selectedLoId={selectedLoId}
+      selectedContentId={selectedContentId}
+      onSidebarTabChange={setSidebarTab}
+      onViewChange={handleViewChange}
+      onSelectObjective={handleSelectObjective}
+      onSelectContent={handleSelectContent}
+    >
+      {mainView === 'dashboard' && (
+        <CoverageDashboard
+          course={course}
+          onSelectObjective={handleSelectObjective}
+          onSelectContent={handleSelectContent}
+        />
+      )}
+
+      {mainView === 'lo-detail' && selectedLoId && (
+        <LODetail
+          course={course}
+          loId={selectedLoId}
+          onAddLinks={handleAddLoContentLinks}
+          onRemoveLink={handleRemoveLoContentLink}
+          onUpdateStrength={handleUpdateLinkStrength}
+        />
+      )}
+
+      {mainView === 'content-detail' && selectedContentId && (
+        <ContentDetail
+          course={course}
+          contentId={selectedContentId}
+          onAddLinks={handleAddContentLoLinks}
+          onRemoveLink={handleRemoveContentLoLink}
+          onSelectObjective={handleSelectObjective}
+        />
+      )}
+    </AppShell>
+  )
+}
